@@ -1,0 +1,29 @@
+[package]
+cairo-version = "2.6.3"
+description = "Trend Strategy for Haiko AMM."
+name = "haiko_strategy_trend"
+version = "0.1.0"
+edition = "2023_11"
+
+[dependencies]
+starknet = "2.6.3"
+# Imported locally for now, as it is not yet public. Note amm repo needs to be set to same
+# version as this repo to build properly.
+haiko_amm = { path = "../amm" }
+haiko_lib = { git = "https://github.com/haiko-xyz/library.git", branch = "v2.0.0" }
+snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.21.0" }
+openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", tag = "v0.11.0" }
+
+[[target.starknet-contract]]
+sierra = true
+casm = true
+allowed-libfuncs-list.name = "experimental"
+build-external-contracts = [
+  'haiko_amm::contracts::market_manager::MarketManager',
+  'haiko_lib::mocks::erc20::ERC20'
+]
+
+[[tool.snforge.fork]]
+name = "MAINNET"
+url = 'https://free-rpc.nethermind.io/mainnet-juno'
+block_id.tag = "Latest"
