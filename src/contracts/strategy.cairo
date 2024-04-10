@@ -344,7 +344,8 @@ pub mod TrendStrategy {
                 } else {
                     floored_curr_limit - state.range
                 };
-                let quote_amount = state.quote_reserves + bid_quote
+                let quote_amount = state.quote_reserves
+                    + bid_quote
                     + bid_quote_fees
                     + if update_ask {
                         ask_quote + ask_quote_fees
@@ -375,7 +376,8 @@ pub mod TrendStrategy {
                 let ask_upper = min(
                     ceiled_ask_lower + state.range, price_math::max_limit(market_info.width)
                 );
-                let base_amount = state.base_reserves + ask_base
+                let base_amount = state.base_reserves
+                    + ask_base
                     + ask_base_fees
                     + if update_bid {
                         bid_base + bid_base_fees
@@ -413,7 +415,7 @@ pub mod TrendStrategy {
             }
 
             // Check whether strategy will rebalance.
-            self._update_positions(market_id, Option::Some(params));
+            self._update_positions(market_id, state, Option::Some(params));
         }
     }
 
@@ -614,7 +616,7 @@ pub mod TrendStrategy {
             // Approve max spend by market manager. Place initial positions.
             base_token.approve(market_manager.contract_address, BoundedInt::max());
             quote_token.approve(market_manager.contract_address, BoundedInt::max());
-            let (bid, ask) = self._update_positions(market_id, Option::None(()));
+            let (bid, ask) = self._update_positions(market_id, state, Option::None(()));
 
             // Mint liquidity
             let shares: u256 = (bid.liquidity + ask.liquidity).into();
@@ -1018,7 +1020,7 @@ pub mod TrendStrategy {
             assert(!state.is_paused, 'Paused');
 
             // Update positions.
-            self._update_positions(market_id, Option::None(()));
+            self._update_positions(market_id, state, Option::None(()));
         }
 
         // Upgrade contract class.
@@ -1049,11 +1051,14 @@ pub mod TrendStrategy {
         // * `bid` - new bid position
         // * `ask` - new ask position
         fn _update_positions(
-            ref self: ContractState, market_id: felt252, swap_params: Option<SwapParams>
+            ref self: ContractState,
+            market_id: felt252,
+            mut state: StrategyState,
+            swap_params: Option<SwapParams>
         ) -> (PositionInfo, PositionInfo) {
             // Fetch market and strategy state.
             let market_manager = self.market_manager.read();
-            let mut state = self.strategy_state.read(market_id);
+            // let mut state = self.strategy_state.read(market_id);
 
             // Compare placed and queued positions.
             // If the old positions are the same as the new positions, no updates will be made.

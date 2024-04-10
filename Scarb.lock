@@ -4,6 +4,7 @@ version = 1
 [[package]]
 name = "haiko_amm"
 version = "2.0.0"
+source = "git+https://github.com/haiko-xyz/amm.git?branch=v2.0.0#24bc5685ce60e0e89f664617436c53ea7549c84a"
 dependencies = [
  "haiko_lib",
  "openzeppelin",

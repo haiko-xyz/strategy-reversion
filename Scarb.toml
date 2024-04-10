@@ -9,7 +9,7 @@ edition = "2023_11"
 starknet = "2.6.3"
 # Imported locally for now, as it is not yet public. Note amm repo needs to be set to same
 # version as this repo to build properly.
-haiko_amm = { path = "../amm" }
+haiko_amm = { git = "https://github.com/haiko-xyz/amm.git", branch = "v2.0.0" }
 haiko_lib = { git = "https://github.com/haiko-xyz/library.git", branch = "v2.0.0" }
 snforge_std = { git = "https://github.com/foundry-rs/starknet-foundry.git", tag = "v0.21.0" }
 openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", tag = "v0.11.0" }
