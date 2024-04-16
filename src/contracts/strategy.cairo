@@ -292,34 +292,24 @@ pub mod TrendStrategy {
             //    a. User is selling while price is inside our bid position
             //    b. User is buying while price is inside our ask position
             // 3. The market is moving in line with the trend:
-            //    a. Price has moved above ask lower in an uptrend -> rebalance ask
-            //    b. Price has moved below bid upper in a downtrend -> rebalance bid
-            // - OR -
-            // Alternatively, if swap_params are not provided, always update positions.
+            //    a. Price is above ask lower and user is buying, in an uptrend -> rebalance ask
+            //    b. Price is below bid upper and use is selling, in a downtrend -> rebalance bid
+            // Alternatively, if swap_params are not provided, we always update positions.
             let cond_1b_bid = bid_upper == bid_lower || (bid_upper - bid_lower) != state.range;
             let cond_1b_ask = ask_upper == ask_lower || (ask_upper - ask_lower) != state.range;
-            let (update_bid, update_ask) = if swap_params.is_none()
+            let rebalance = if swap_params.is_none()
                 || state.queued_trend != state.trend
                 || cond_1b_bid
                 || cond_1b_ask {
-                (true, true)
+                true
             } else {
                 let is_buy = swap_params.unwrap().is_buy;
                 match state.trend {
-                    Trend::Range => {
-                        let rebalance = !is_buy
-                            && curr_limit < bid_upper || is_buy
-                            && curr_limit >= ask_lower;
-                        (rebalance, rebalance)
-                    },
-                    Trend::Up => {
-                        let rebalance = curr_limit >= ask_lower;
-                        (false, rebalance)
-                    },
-                    Trend::Down => {
-                        let rebalance = curr_limit < bid_upper;
-                        (rebalance, false)
-                    }
+                    Trend::Range => !is_buy
+                        && curr_limit < bid_upper || is_buy
+                        && curr_limit >= ask_lower,
+                    Trend::Up => is_buy && curr_limit >= ask_lower,
+                    Trend::Down => !is_buy && curr_limit < bid_upper,
                 }
             };
             // println!("update_bid: {}, update_ask: {}", update_bid, update_ask);
@@ -335,7 +325,8 @@ pub mod TrendStrategy {
             let placed_positions = self.placed_positions(market_id);
             let mut bid = *placed_positions.at(0);
             let mut ask = *placed_positions.at(1);
-            if update_bid {
+            if rebalance {
+                // Rebalance bid.
                 let floored_curr_limit = trend_math::floor_limit(
                     market_state.curr_limit, market_info.width
                 );
@@ -344,13 +335,11 @@ pub mod TrendStrategy {
                 } else {
                     floored_curr_limit - state.range
                 };
-                let quote_amount = state.quote_reserves + bid_quote
+                let quote_amount = state.quote_reserves
+                    + bid_quote
                     + bid_quote_fees
-                    + if update_ask {
-                        ask_quote + ask_quote_fees
-                    } else {
-                        0
-                    };
+                    + ask_quote
+                    + ask_quote_fees;
                 let bid_upper = floored_curr_limit;
                 let bid_liquidity = if quote_amount == 0 || bid_lower == 0 || bid_upper == 0 {
                     0
@@ -366,8 +355,8 @@ pub mod TrendStrategy {
                     PositionInfo {
                         lower_limit: bid_lower, upper_limit: bid_upper, liquidity: bid_liquidity,
                     };
-            }
-            if update_ask {
+
+                // Rebalance ask.
                 let ceiled_ask_lower = trend_math::ceil_limit(
                     market_state.curr_limit, market_info.width
                 );
@@ -375,13 +364,11 @@ pub mod TrendStrategy {
                 let ask_upper = min(
                     ceiled_ask_lower + state.range, price_math::max_limit(market_info.width)
                 );
-                let base_amount = state.base_reserves + ask_base
+                let base_amount = state.base_reserves
+                    + ask_base
                     + ask_base_fees
-                    + if update_bid {
-                        bid_base + bid_base_fees
-                    } else {
-                        0
-                    };
+                    + bid_base
+                    + bid_base_fees;
                 let ask_liquidity = if base_amount == 0 || ask_lower == 0 || ask_upper == 0 {
                     0
                 } else {

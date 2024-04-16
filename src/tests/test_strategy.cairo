@@ -419,6 +419,276 @@ fn test_set_trend() {
         );
 }
 
+#[derive(Drop, Copy, Serde)]
+enum StartPrice {
+    BelowBid,
+    BetweenBidAsk,
+    AboveAsk,
+}
+
+fn _test_update_positions(
+    trend: Trend,
+    start_price: StartPrice,
+    is_buy: bool,
+    should_bid_rebalance: bool,
+    should_ask_rebalance: bool,
+) {
+    let (market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    // Set trend.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    if trend != Trend::Range {
+        strategy.set_strategy_params(market_id, trend, 5000);
+    }
+
+    // Deposit initial.
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+
+    // Snapshot before.
+    let mut placed_positions = IStrategyDispatcher { contract_address: strategy.contract_address }
+        .placed_positions(market_id);
+    let bid_bef = *placed_positions.at(0);
+    let ask_bef = *placed_positions.at(1);
+
+    // Execute swap as strategy and check positions updated.
+    // This must be done to overcome a limitation with `prank` that causes tx to revert for a 
+    // non-strategy caller.
+    start_prank(CheatTarget::One(market_manager.contract_address), strategy.contract_address);
+    start_prank(CheatTarget::One(strategy.contract_address), market_manager.contract_address);
+    let amount = to_e18(50000);
+    // First sell to place price below bid upper.
+    match start_price {
+        StartPrice::BelowBid => {
+            market_manager
+                .swap(
+                    market_id,
+                    false,
+                    amount,
+                    true,
+                    Option::None(()),
+                    Option::None(()),
+                    Option::None(())
+                );
+        },
+        StartPrice::AboveAsk => {
+            market_manager
+                .swap(
+                    market_id,
+                    true,
+                    amount,
+                    true,
+                    Option::None(()),
+                    Option::None(()),
+                    Option::None(())
+                );
+        },
+        _ => {}
+    }
+    // Strategy rebalances on second swap (buy).
+    market_manager
+        .swap(
+            market_id, is_buy, amount, true, Option::None(()), Option::None(()), Option::None(())
+        );
+
+    // Snapshot after.
+    placed_positions = IStrategyDispatcher { contract_address: strategy.contract_address }
+        .placed_positions(market_id);
+    let bid_aft = *placed_positions.at(0);
+    let ask_aft = *placed_positions.at(1);
+
+    // Run checks.
+    if should_bid_rebalance {
+        assert(bid_bef.lower_limit != bid_aft.lower_limit, 'Bid: lower limit');
+        assert(bid_bef.upper_limit != bid_aft.upper_limit, 'Bid: upper limit');
+        assert(bid_bef.liquidity != bid_aft.liquidity, 'Bid: liquidity');
+    } else {
+        assert(bid_bef.lower_limit == bid_aft.lower_limit, 'Bid: lower limit');
+        assert(bid_bef.upper_limit == bid_aft.upper_limit, 'Bid: upper limit');
+        assert(bid_bef.liquidity == bid_aft.liquidity, 'Bid: liquidity');
+    }
+    if should_ask_rebalance {
+        assert(ask_bef.lower_limit != ask_aft.lower_limit, 'Ask: lower limit');
+        assert(ask_bef.upper_limit != ask_aft.upper_limit, 'Ask: upper limit');
+        assert(ask_bef.liquidity != ask_aft.liquidity, 'Ask: liquidity');
+    } else {
+        assert(ask_bef.lower_limit == ask_aft.lower_limit, 'Ask: lower limit');
+        assert(ask_bef.upper_limit == ask_aft.upper_limit, 'Ask: upper limit');
+        assert(ask_bef.liquidity == ask_aft.liquidity, 'Ask: liquidity');
+    }
+}
+
+
+// Case 1: Trend = Ranging, price is below bid upper, and user is buying
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_1() {
+    _test_update_positions(Trend::Range, StartPrice::BelowBid, true, false, false);
+}
+
+// Case 2: Trend = Ranging, price is below bid upper, and user is selling
+// Expected: Rebalance both
+#[test]
+fn test_update_positions_case_2() {
+    _test_update_positions(Trend::Range, StartPrice::BelowBid, false, true, true);
+}
+
+// Case 3: Trend = Ranging, price is between bid and ask, and user is buying
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_3() {
+    _test_update_positions(Trend::Range, StartPrice::BetweenBidAsk, true, false, false);
+}
+
+// Case 4: Trend = Ranging, price is between bid and ask, and user is selling
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_4() {
+    _test_update_positions(Trend::Range, StartPrice::BetweenBidAsk, false, false, false);
+}
+
+// Case 5: Trend = Ranging, price is above ask lower, and user is buying
+// Expected: Rebalance both
+#[test]
+fn test_update_positions_case_5() {
+    _test_update_positions(Trend::Range, StartPrice::AboveAsk, true, true, true);
+}
+
+// Case 6: Trend = Ranging, price is above ask lower, and user is selling
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_6() {
+    _test_update_positions(Trend::Range, StartPrice::AboveAsk, false, false, false);
+}
+
+// Case 7: Trend = Up, price is below bid upper, and user is buying
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_7() {
+    _test_update_positions(Trend::Up, StartPrice::BelowBid, true, false, false);
+}
+
+// Case 8: Trend = Up, price is below bid upper, and user is selling
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_8() {
+    _test_update_positions(Trend::Up, StartPrice::BelowBid, false, false, false);
+}
+
+// Case 9: Trend = Up, price is between bid and ask, and user is buying
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_9() {
+    _test_update_positions(Trend::Up, StartPrice::BetweenBidAsk, true, false, false);
+}
+
+// Case 10: Trend = Up, price is between bid and ask, and user is selling
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_10() {
+    _test_update_positions(Trend::Up, StartPrice::BetweenBidAsk, false, false, false);
+}
+
+// Case 11: Trend = Up, price is above ask lower, and user is buying
+// Expected: Rebalance both
+#[test]
+fn test_update_positions_case_11() {
+    _test_update_positions(Trend::Up, StartPrice::AboveAsk, true, true, true);
+}
+
+// Case 12: Trend = Up, price is above ask lower, and user is selling
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_12() {
+    _test_update_positions(Trend::Up, StartPrice::AboveAsk, false, false, false);
+}
+
+// Case 13: Trend = Down, price is below bid upper, and user is buying
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_13() {
+    _test_update_positions(Trend::Down, StartPrice::BelowBid, true, false, false);
+}
+
+// Case 14: Trend = Down, price is below bid upper, and user is selling
+// Expected: Rebalance both
+#[test]
+fn test_update_positions_case_14() {
+    _test_update_positions(Trend::Down, StartPrice::BelowBid, false, true, true);
+}
+
+// Case 15: Trend = Down, price is between bid and ask, and user is buying
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_15() {
+    _test_update_positions(Trend::Down, StartPrice::BetweenBidAsk, true, false, false);
+}
+
+// Case 16: Trend = Down, price is between bid and ask, and user is selling
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_16() {
+    _test_update_positions(Trend::Down, StartPrice::BetweenBidAsk, true, false, false);
+}
+
+// Case 17: Trend = Down, price is above ask lower, and user is buying
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_17() {
+    _test_update_positions(Trend::Down, StartPrice::AboveAsk, true, false, false);
+}
+
+// Case 18: Trend = Down, price is above ask lower, and user is selling
+// Expected: No rebalance
+#[test]
+fn test_update_positions_case_18() {
+    _test_update_positions(Trend::Down, StartPrice::AboveAsk, false, false, false);
+}
+
+// Update positions: Updating range
+#[test]
+fn test_update_positions_update_range() {
+    let (market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    // Deposit initial.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+
+    // Snapshot before.
+    let mut placed_positions = IStrategyDispatcher { contract_address: strategy.contract_address }
+        .placed_positions(market_id);
+    let bid_bef = *placed_positions.at(0);
+    let ask_bef = *placed_positions.at(1);
+
+    // Update trend to Up mode.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    strategy.set_strategy_params(market_id, Trend::Range, 4000);
+
+    // Swap to trigger update.
+    start_prank(CheatTarget::One(market_manager.contract_address), strategy.contract_address);
+    start_prank(CheatTarget::One(strategy.contract_address), market_manager.contract_address);
+    let amount = to_e18(50000);
+    market_manager
+        .swap(market_id, true, amount, true, Option::None(()), Option::None(()), Option::None(()));
+
+    // Snapshot after.
+    placed_positions = IStrategyDispatcher { contract_address: strategy.contract_address }
+        .placed_positions(market_id);
+    let bid_aft = *placed_positions.at(0);
+    let ask_aft = *placed_positions.at(1);
+
+    // Run checks.
+    assert(bid_bef.lower_limit != bid_aft.lower_limit, 'Bid: lower limit');
+    assert(bid_bef.upper_limit == bid_aft.upper_limit, 'Bid: upper limit');
+    assert(bid_bef.liquidity != bid_aft.liquidity, 'Bid: liquidity');
+    assert(ask_bef.lower_limit == ask_aft.lower_limit, 'Ask: lower limit');
+    assert(ask_bef.upper_limit != ask_aft.upper_limit, 'Ask: upper limit');
+    assert(ask_bef.liquidity != ask_aft.liquidity, 'Ask: liquidity');
+}
+
 #[test]
 fn test_withdraw() {
     let (market_manager, base_token, quote_token, market_id, strategy, token) = before();
