@@ -5,7 +5,7 @@ use starknet::ContractAddress;
 use haiko_strategy_reversion::contracts::strategy::ReversionStrategy;
 use haiko_strategy_reversion::types::{Trend, StrategyState};
 use haiko_strategy_reversion::interfaces::{
-    ITrendStrategy::{ITrendStrategyDispatcher, ITrendStrategyDispatcherTrait},
+    IReversionStrategy::{IReversionStrategyDispatcher, IReversionStrategyDispatcherTrait},
     IVaultToken::{IVaultTokenDispatcher, IVaultTokenDispatcherTrait}
 };
 use haiko_strategy_reversion::tests::helpers::deploy_trend_strategy;
@@ -43,7 +43,7 @@ fn _before(
     ERC20ABIDispatcher,
     ERC20ABIDispatcher,
     felt252,
-    ITrendStrategyDispatcher,
+    IReversionStrategyDispatcher,
     Option<ERC20ABIDispatcher>,
 ) {
     // Deploy market manager.
@@ -113,7 +113,7 @@ fn before() -> (
     ERC20ABIDispatcher,
     ERC20ABIDispatcher,
     felt252,
-    ITrendStrategyDispatcher,
+    IReversionStrategyDispatcher,
     ERC20ABIDispatcher,
 ) {
     let (market_manager, base_token, quote_token, market_id, strategy, token) = _before(true);
@@ -125,7 +125,7 @@ fn before_skip_initialise() -> (
     ERC20ABIDispatcher,
     ERC20ABIDispatcher,
     felt252,
-    ITrendStrategyDispatcher,
+    IReversionStrategyDispatcher,
 ) {
     let (market_manager, base_token, quote_token, market_id, strategy, _) = _before(false);
     (market_manager, base_token, quote_token, market_id, strategy)
@@ -1309,7 +1309,7 @@ struct Snapshot {
 
 fn _snapshot_state(
     market_manager: IMarketManagerDispatcher,
-    strategy: ITrendStrategyDispatcher,
+    strategy: IReversionStrategyDispatcher,
     market_id: felt252,
     base_token: ERC20ABIDispatcher,
     quote_token: ERC20ABIDispatcher,

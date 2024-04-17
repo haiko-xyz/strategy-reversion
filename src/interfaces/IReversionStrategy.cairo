@@ -10,15 +10,18 @@ use haiko_lib::types::core::{PositionInfo, SwapParams};
 
 
 #[starknet::interface]
-pub trait ITrendStrategy<TContractState> {
+pub trait IReversionStrategy<TContractState> {
     // Contract owner
     fn owner(self: @TContractState) -> ContractAddress;
 
     // Queued contract owner, used for ownership transfers
     fn queued_owner(self: @TContractState) -> ContractAddress;
 
-    // Set trend for a given market
+    // Get trend for a given market
     fn trend(self: @TContractState, market_id: felt252) -> Trend;
+
+    // Get queued trend for a given market
+    fn queued_trend(self: @TContractState, market_id: felt252) -> Trend;
 
     // Strategy state
     fn strategy_state(self: @TContractState, market_id: felt252) -> StrategyState;

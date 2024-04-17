@@ -12,7 +12,7 @@ pub mod ReversionStrategy {
     // Local imports.
     use haiko_strategy_reversion::libraries::{trend_math, store_packing::StrategyStateStorePacking};
     use haiko_strategy_reversion::types::{Trend, StrategyState};
-    use haiko_strategy_reversion::interfaces::ITrendStrategy::ITrendStrategy;
+    use haiko_strategy_reversion::interfaces::IReversionStrategy::IReversionStrategy;
     use haiko_strategy_reversion::interfaces::IVaultToken::{
         IVaultTokenDispatcher, IVaultTokenDispatcherTrait
     };
@@ -229,6 +229,9 @@ pub mod ReversionStrategy {
 
         // Get list of positions currently placed by strategy.
         //
+        // # Arguments
+        // * `market_id` - market id
+        //
         // # Returns
         // * `positions` - list of positions
         fn placed_positions(self: @ContractState, market_id: felt252) -> Span<PositionInfo> {
@@ -261,6 +264,10 @@ pub mod ReversionStrategy {
         // are queued, the returned list will match the list returned by `placed_positions`. Note that
         // the list of queued positions can differ depending on the incoming swap. 
         // 
+        // # Arguments
+        // * `market_id` - market id
+        // * `swap_params` - (optional) incoming swap parameters
+        //
         // # Returns
         // * `positions` - list of positions
         fn queued_positions(
@@ -312,7 +319,6 @@ pub mod ReversionStrategy {
                     Trend::Down => !is_buy && curr_limit < bid_upper,
                 }
             };
-            // println!("update_bid: {}, update_ask: {}", update_bid, update_ask);
 
             // Fetch amounts in existing position.
             let contract: felt252 = get_contract_address().into();
@@ -405,7 +411,7 @@ pub mod ReversionStrategy {
     }
 
     #[abi(embed_v0)]
-    impl ReversionStrategy of ITrendStrategy<ContractState> {
+    impl ReversionStrategy of IReversionStrategy<ContractState> {
         // Contract owner
         fn owner(self: @ContractState) -> ContractAddress {
             self.owner.read()
@@ -419,6 +425,11 @@ pub mod ReversionStrategy {
         // Trend
         fn trend(self: @ContractState, market_id: felt252) -> Trend {
             self.strategy_state.read(market_id).trend
+        }
+
+        // Queued trend
+        fn queued_trend(self: @ContractState, market_id: felt252) -> Trend {
+            self.strategy_state.read(market_id).queued_trend
         }
 
         // Strategy state
@@ -867,6 +878,9 @@ pub mod ReversionStrategy {
 
         // Manually trigger contract to collect all outstanding positions and pause the contract.
         // Only callable by owner.
+        //
+        // # Arguments
+        // * `market_id` - market id
         fn collect_and_pause(ref self: ContractState, market_id: felt252) {
             self.assert_owner();
             self._collect_and_pause(market_id);
@@ -879,6 +893,9 @@ pub mod ReversionStrategy {
         // * `receiver` - address to receive fees
         // * `token` - token to collect fees for
         // * `amount` - amount of fees requested
+        //
+        // # Returns
+        // * `amount` - amount collected
         fn collect_withdraw_fees(
             ref self: ContractState, receiver: ContractAddress, token: ContractAddress, amount: u256
         ) -> u256 {
@@ -1050,10 +1067,6 @@ pub mod ReversionStrategy {
             let mut ask = *placed_positions.at(1);
             let next_bid = *queued_positions.at(0);
             let next_ask = *queued_positions.at(1);
-            // println!("[placed] bid_lower: {}, bid_upper: {}, bid_liquidity: {}", bid.lower_limit, bid.upper_limit, bid.liquidity);
-            // println!("[placed] ask_lower: {}, ask_upper: {}, ask_liquidity: {}", ask.lower_limit, ask.upper_limit, ask.liquidity);
-            // println!("[queued] bid_lower: {}, bid_upper: {}, bid_liquidity: {}", next_bid.lower_limit, next_bid.upper_limit, next_bid.liquidity);
-            // println!("[queued] ask_lower: {}, ask_upper: {}, ask_liquidity: {}", next_ask.lower_limit, next_ask.upper_limit, next_ask.liquidity);
             let update_bid: bool = next_bid.lower_limit != bid.lower_limit
                 || next_bid.upper_limit != bid.upper_limit;
             let update_ask: bool = next_ask.lower_limit != ask.lower_limit

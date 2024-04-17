@@ -1,2 +1,2 @@
-pub mod ITrendStrategy;
+pub mod IReversionStrategy;
 pub mod IVaultToken;
