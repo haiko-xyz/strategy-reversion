@@ -10,7 +10,7 @@ pub mod ReversionStrategy {
     use starknet::syscalls::{replace_class_syscall, deploy_syscall};
 
     // Local imports.
-    use haiko_strategy_reversion::libraries::{trend_math};
+    use haiko_strategy_reversion::libraries::{trend_math, store_packing::StrategyStateStorePacking};
     use haiko_strategy_reversion::types::{Trend, StrategyState};
     use haiko_strategy_reversion::interfaces::ITrendStrategy::ITrendStrategy;
     use haiko_strategy_reversion::interfaces::IVaultToken::{
