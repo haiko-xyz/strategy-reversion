@@ -20,6 +20,10 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | bash -s -- -v ${{ env.SCARB_VERSION }}
 
+      - name: Set up Git authentication
+        run: |
+          git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $(echo -n x-access-token:${{ secrets.GH_PAT }} | base64 --wrap=0)"
+
       - name: Setup Foundry
         run: |
           curl -L https://raw.githubusercontent.com/foundry-rs/starknet-foundry/master/scripts/install.sh | sh -s -- -v ${{ env.SNFORGE_VERSION }}
