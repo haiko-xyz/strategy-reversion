@@ -4,7 +4,7 @@ use starknet::ContractAddress;
 use starknet::class_hash::ClassHash;
 
 // Local imports.
-use haiko_strategy_trend::interfaces::ITrendStrategy::ITrendStrategyDispatcher;
+use haiko_strategy_reversion::interfaces::ITrendStrategy::ITrendStrategyDispatcher;
 
 // External imports.
 use snforge_std::{declare, ContractClassTrait};
@@ -12,7 +12,7 @@ use snforge_std::{declare, ContractClassTrait};
 pub fn deploy_trend_strategy(
     owner: ContractAddress, market_manager: ContractAddress, vault_token_class: ClassHash,
 ) -> ITrendStrategyDispatcher {
-    let contract = declare("TrendStrategy");
+    let contract = declare("ReversionStrategy");
     let name: ByteArray = "Trend";
     let symbol: ByteArray = "TRND";
     let mut calldata: Array<felt252> = array![];

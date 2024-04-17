@@ -1,7 +1,7 @@
 [package]
 cairo-version = "2.6.3"
-description = "Trend Strategy for Haiko AMM."
-name = "haiko_strategy_trend"
+description = "Reversion Strategy for Haiko AMM."
+name = "haiko_strategy_reversion"
 version = "0.1.0"
 edition = "2023_11"
 

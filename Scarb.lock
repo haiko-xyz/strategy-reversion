@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "haiko_strategy_trend"
+name = "haiko_strategy_reversion"
 version = "0.1.0"
 dependencies = [
  "haiko_amm",

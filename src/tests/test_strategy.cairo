@@ -2,13 +2,13 @@
 use starknet::ContractAddress;
 
 // Local imports.
-use haiko_strategy_trend::contracts::strategy::TrendStrategy;
-use haiko_strategy_trend::types::{Trend, StrategyState};
-use haiko_strategy_trend::interfaces::{
+use haiko_strategy_reversion::contracts::strategy::ReversionStrategy;
+use haiko_strategy_reversion::types::{Trend, StrategyState};
+use haiko_strategy_reversion::interfaces::{
     ITrendStrategy::{ITrendStrategyDispatcher, ITrendStrategyDispatcherTrait},
     IVaultToken::{IVaultTokenDispatcher, IVaultTokenDispatcherTrait}
 };
-use haiko_strategy_trend::tests::helpers::deploy_trend_strategy;
+use haiko_strategy_reversion::tests::helpers::deploy_trend_strategy;
 
 // Haiko imports.
 use haiko_lib::types::core::{MarketState, PositionInfo, SwapParams};
@@ -179,8 +179,8 @@ fn test_add_market_initialises_immutables() {
             @array![
                 (
                     strategy.contract_address,
-                    TrendStrategy::Event::AddMarket(
-                        TrendStrategy::AddMarket { market_id, token: token_address }
+                    ReversionStrategy::Event::AddMarket(
+                        ReversionStrategy::AddMarket { market_id, token: token_address }
                     )
                 )
             ]
@@ -271,8 +271,8 @@ fn test_deposit_initial_success() {
             @array![
                 (
                     strategy.contract_address,
-                    TrendStrategy::Event::Deposit(
-                        TrendStrategy::Deposit {
+                    ReversionStrategy::Event::Deposit(
+                        ReversionStrategy::Deposit {
                             market_id,
                             caller: owner(),
                             base_amount: initial_base_amount,
@@ -428,8 +428,8 @@ fn test_deposit_success() {
             @array![
                 (
                     strategy.contract_address,
-                    TrendStrategy::Event::Deposit(
-                        TrendStrategy::Deposit {
+                    ReversionStrategy::Event::Deposit(
+                        ReversionStrategy::Deposit {
                             market_id,
                             caller: owner(),
                             base_amount,
@@ -517,8 +517,8 @@ fn test_deposit_single_sided_bid_liquidity() {
             @array![
                 (
                     strategy.contract_address,
-                    TrendStrategy::Event::Deposit(
-                        TrendStrategy::Deposit {
+                    ReversionStrategy::Event::Deposit(
+                        ReversionStrategy::Deposit {
                             market_id,
                             caller: owner(),
                             base_amount,
@@ -606,8 +606,8 @@ fn test_deposit_single_sided_ask_liquidity() {
             @array![
                 (
                     strategy.contract_address,
-                    TrendStrategy::Event::Deposit(
-                        TrendStrategy::Deposit {
+                    ReversionStrategy::Event::Deposit(
+                        ReversionStrategy::Deposit {
                             market_id,
                             caller: owner(),
                             base_amount,
@@ -746,8 +746,8 @@ fn test_swap_updates_positions() {
             @array![
                 (
                     strategy.contract_address,
-                    TrendStrategy::Event::UpdatePositions(
-                        TrendStrategy::UpdatePositions {
+                    ReversionStrategy::Event::UpdatePositions(
+                        ReversionStrategy::UpdatePositions {
                             market_id,
                             bid_lower_limit: bid.lower_limit,
                             bid_upper_limit: bid.upper_limit,
@@ -807,16 +807,16 @@ fn test_set_trend() {
             @array![
                 (
                     strategy.contract_address,
-                    TrendStrategy::Event::SetStrategyParams(
-                        TrendStrategy::SetStrategyParams {
+                    ReversionStrategy::Event::SetStrategyParams(
+                        ReversionStrategy::SetStrategyParams {
                             market_id, trend: Trend::Up, range: 4000,
                         }
                     )
                 ),
                 (
                     strategy.contract_address,
-                    TrendStrategy::Event::UpdatePositions(
-                        TrendStrategy::UpdatePositions {
+                    ReversionStrategy::Event::UpdatePositions(
+                        ReversionStrategy::UpdatePositions {
                             market_id,
                             bid_lower_limit: bid.lower_limit,
                             bid_upper_limit: bid.upper_limit,
@@ -1235,8 +1235,8 @@ fn test_withdraw() {
             @array![
                 (
                     strategy.contract_address,
-                    TrendStrategy::Event::Withdraw(
-                        TrendStrategy::Withdraw {
+                    ReversionStrategy::Event::Withdraw(
+                        ReversionStrategy::Withdraw {
                             market_id,
                             caller: owner(),
                             base_amount,

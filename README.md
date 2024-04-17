@@ -1,15 +1,15 @@
-# Trend Strategy for Haiko AMM
+# Reversion Strategy for Haiko AMM
 
-The Trend Strategy operates on a trend classification (`Up`, `Down` or `Ranging`) to place self-rebalancing liquidity positions in Haiko AMM.
+The Reversion Strategy operates on a trend classification model (`Up`, `Down` or `Ranging`) to place countervailing liquidity positions in the Haiko AMM.
 
-Positions automatically follow the price of a token pair on either single or double-sided price action, similar to Left and Right modes in [Maverick Protocol](https://www.mav.xyz/).
+Positions automatically follow the price of an asset, updated on either single or double-sided price action, depending on the prevailing trend. It is inspired by [Maverick Protocol](https://www.mav.xyz/)'s Left and Right modes and enables liquidity provision in both volatile and stable market conditions.
 
-Unlike the first [Replicating Strategy](https://haiko-docs.gitbook.io/docs/protocol/strategy-vaults/live-vaults/replicating-strategy) for Haiko:
+Unlike the first [Replicating Strategy](https://haiko-docs.gitbook.io/docs/protocol/strategy-vaults/live-vaults/replicating-strategy) for Haiko, it:
 
-1. It does not rely on an external oracle price, allowing for use with a much wider range of pairs.
-2. Vault positions are now tracked with a corresponding ERC20 token, allowing for greater composability with other DeFi protocols.
-
-Trend classification is currently computed off-chain and brought on-chain via a state update. This can be done trustlessly with a verifiable ML model e.g. with [Giza](https://www.gizatech.xyz/).
+1. Does not rely on an external oracle price, allowing for use with a much wider range of pairs.
+2. Tracks Vault positions with ERC20 tokens, allowing for greater composability across DeFi protocols.
+3. Builds on top of [Giza](https://www.gizatech.xyz/)'s zkML stack and trustless Agents to bring the outputs of a trend classification model on-chain.
+4. Will be built in open source
 
 ## Getting started
 

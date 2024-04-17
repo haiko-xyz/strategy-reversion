@@ -1,5 +1,5 @@
 #[starknet::contract]
-pub mod TrendStrategy {
+pub mod ReversionStrategy {
     // Core lib imports.
     use core::integer::BoundedInt;
     use core::cmp::{min, max};
@@ -10,10 +10,10 @@ pub mod TrendStrategy {
     use starknet::syscalls::{replace_class_syscall, deploy_syscall};
 
     // Local imports.
-    use haiko_strategy_trend::libraries::{trend_math};
-    use haiko_strategy_trend::types::{Trend, StrategyState};
-    use haiko_strategy_trend::interfaces::ITrendStrategy::ITrendStrategy;
-    use haiko_strategy_trend::interfaces::IVaultToken::{
+    use haiko_strategy_reversion::libraries::{trend_math};
+    use haiko_strategy_reversion::types::{Trend, StrategyState};
+    use haiko_strategy_reversion::interfaces::ITrendStrategy::ITrendStrategy;
+    use haiko_strategy_reversion::interfaces::IVaultToken::{
         IVaultTokenDispatcher, IVaultTokenDispatcherTrait
     };
 
@@ -405,7 +405,7 @@ pub mod TrendStrategy {
     }
 
     #[abi(embed_v0)]
-    impl TrendStrategy of ITrendStrategy<ContractState> {
+    impl ReversionStrategy of ITrendStrategy<ContractState> {
         // Contract owner
         fn owner(self: @ContractState) -> ContractAddress {
             self.owner.read()

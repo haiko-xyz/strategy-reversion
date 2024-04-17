@@ -3,7 +3,7 @@ use starknet::ContractAddress;
 use starknet::class_hash::ClassHash;
 
 // Local imports.
-use haiko_strategy_trend::types::{StrategyState, Trend};
+use haiko_strategy_reversion::types::{StrategyState, Trend};
 
 // Haiko imports.
 use haiko_lib::types::core::{PositionInfo, SwapParams};
