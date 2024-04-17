@@ -11,13 +11,13 @@ use haiko_strategy_trend::interfaces::{
 use haiko_strategy_trend::tests::helpers::deploy_trend_strategy;
 
 // Haiko imports.
-use haiko_lib::types::core::{MarketState, PositionInfo};
+use haiko_lib::types::core::{MarketState, PositionInfo, SwapParams};
 use haiko_lib::interfaces::{
     IMarketManager::{IMarketManagerDispatcher, IMarketManagerDispatcherTrait},
     IStrategy::{IStrategyDispatcher, IStrategyDispatcherTrait},
 };
 use haiko_lib::helpers::params::{
-    CreateMarketParams, ModifyPositionParams, SwapParams, SwapMultipleParams, TransferOwnerParams,
+    CreateMarketParams, ModifyPositionParams, SwapMultipleParams, TransferOwnerParams,
     owner, alice, bob, default_token_params, default_market_params
 };
 use haiko_lib::helpers::utils::{to_e18, approx_eq_pct, approx_eq};
@@ -188,6 +188,35 @@ fn test_add_market_initialises_immutables() {
 }
 
 #[test]
+#[should_panic(expected: ('MarketNull',))]
+fn test_add_market_null() {
+    let (_market_manager, _base_token, _quote_token, _market_id, strategy) =
+        before_skip_initialise();
+
+    // Add non-existent market to strategy.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    strategy.add_market(1, owner(), Trend::Range, 5000);
+}
+
+#[test]
+#[should_panic(expected: ('Initialised',))]
+fn test_add_market_initialised() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    strategy.add_market(market_id, owner(), Trend::Range, 5000);
+}
+
+#[test]
+#[should_panic(expected: ('RangeZero',))]
+fn test_add_market_range_zero() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy) = before_skip_initialise();
+
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    strategy.add_market(market_id, owner(), Trend::Range, 0);
+}
+
+#[test]
 fn test_deposit_initial_success() {
     let (market_manager, base_token, quote_token, market_id, strategy, token) = before();
 
@@ -254,6 +283,389 @@ fn test_deposit_initial_success() {
                 )
             ]
         );
+}
+
+#[test]
+#[should_panic(expected: ('AmountZero',))]
+fn test_deposit_initial_base_amount_zero() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = 0;
+    let initial_quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+}
+
+#[test]
+#[should_panic(expected: ('AmountZero',))]
+fn test_deposit_initial_quote_amount_zero() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = 0;
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+}
+
+#[test]
+#[should_panic(expected: ('UseDeposit',))]
+fn test_deposit_initial_existing_deposits() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    // Deposit initial.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+
+    // Attempt to deposit again.
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+}
+
+#[test]
+#[should_panic(expected: ('NotInitialised',))]
+fn test_deposit_initial_not_initialised() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy) = before_skip_initialise();
+
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+}
+
+#[test]
+#[should_panic(expected: ('Paused',))]
+fn test_deposit_initial_paused() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    strategy.pause(market_id);
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+}
+
+#[test]
+#[should_panic(expected: ('u256_sub Overflow',))]
+fn test_deposit_initial_insufficient_base_amount() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let base_amount = to_e18(100000000);
+    let quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, base_amount, quote_amount);
+}
+
+#[test]
+#[should_panic(expected: ('u256_sub Overflow',))]
+fn test_deposit_initial_insufficient_quote_amount() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let base_amount = to_e18(500000);
+    let quote_amount = to_e18(10000000000000);
+    strategy.deposit_initial(market_id, base_amount, quote_amount);
+}
+
+#[test]
+fn test_deposit_success() {
+    let (market_manager, _base_token, _quote_token, market_id, strategy, token) = before();
+
+    // Deposit initial.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = to_e18(1000000);
+    let shares_init = strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+
+    // Snapshot before.
+    let bef = _snapshot_state(
+        market_manager, strategy, market_id, _base_token, _quote_token, owner()
+    );
+
+    // Log events.
+    let mut spy = spy_events(SpyOn::One(strategy.contract_address));
+
+    // Deposit.
+    let base_amount_req = to_e18(500000);
+    let quote_amount_req = to_e18(1500000); // Contains extra, should be partially refunded
+    let (base_amount, quote_amount, shares) = strategy.deposit(market_id, base_amount_req, quote_amount_req);
+
+    // Snapshot after.
+    let aft = _snapshot_state(
+        market_manager, strategy, market_id, _base_token, _quote_token, owner()
+    );
+
+    // Run checks.
+    let base_amount_exp = to_e18(500000);
+    let quote_amount_exp = to_e18(1000000);
+    assert(base_amount == base_amount_exp, 'Base amount');
+    assert(approx_eq(quote_amount, quote_amount_exp, 10), 'Quote amount');
+    assert(approx_eq_pct(shares, shares_init, 20), 'Shares');
+    assert(aft.lp_base_bal == bef.lp_base_bal - base_amount_exp, 'Owner base balance');
+    assert(approx_eq(aft.lp_quote_bal, bef.lp_quote_bal - quote_amount_exp, 10), 'Owner quote balance');
+
+    assert(aft.strategy_base_bal == bef.strategy_base_bal + base_amount_exp, 'Strategy base balance');
+    assert(approx_eq(aft.strategy_quote_bal, bef.strategy_quote_bal + quote_amount_exp, 10), 'Strategy quote balance');
+    assert(aft.market_base_bal == bef.market_base_bal, 'Market base balance');
+    assert(aft.market_quote_bal == bef.market_quote_bal, 'Market quote balance');
+    assert(aft.market_base_res == initial_base_amount, 'Market base reserves');
+    assert(aft.market_quote_res == initial_quote_amount, 'Market quote reserves');
+    assert(aft.strategy_state.base_reserves == bef.strategy_state.base_reserves + base_amount_exp, 'Base reserves');
+    assert(
+        approx_eq(aft.strategy_state.quote_reserves, bef.strategy_state.quote_reserves + quote_amount_exp, 10), 
+        'Quote reserves'
+    );
+    assert(aft.bid.lower_limit == 7906620 - 5000, 'Bid: lower limit');
+    assert(aft.bid.upper_limit == 7906620 + 0, 'Bid: upper limit');
+    assert(aft.ask.lower_limit == 7906620 + 10, 'Ask: lower limit');
+    assert(aft.ask.upper_limit == 7906620 + 5010, 'Ask: upper limit');
+    assert(token.balance_of(owner()) == shares_init + shares, 'User shares');
+    assert(token.total_supply() == shares_init + shares, 'Total supply');
+
+    // Check event emitted.
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    strategy.contract_address,
+                    TrendStrategy::Event::Deposit(
+                        TrendStrategy::Deposit {
+                            market_id,
+                            caller: owner(),
+                            base_amount,
+                            quote_amount,
+                            shares,
+                        }
+                    )
+                )
+            ]
+        );
+}
+
+// The portfolio could become entirely skewed in one asset due to price movements. In this case,
+// single-sided liquidity deposits should be handled gracefully.
+#[test]
+fn test_deposit_single_sided_bid_liquidity() {
+    let (market_manager, base_token, quote_token, market_id, strategy, token) = before();
+    
+    // Deposit initial.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = 1000;
+    let initial_quote_amount = to_e18(1000000);
+    let shares_init = strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+
+    // Swap buy to concentrate position entirely in bid.
+    start_prank(CheatTarget::One(market_manager.contract_address), strategy.contract_address);
+    start_prank(CheatTarget::One(strategy.contract_address), market_manager.contract_address);
+    market_manager
+        .swap(
+            market_id,
+            true,
+            to_e18(1000),
+            true,
+            Option::None(()),
+            Option::None(()),
+            Option::None(())
+        );
+
+    // Snapshot before.
+    let bef = _snapshot_state(
+        market_manager, strategy, market_id, base_token, quote_token, owner()
+    );
+
+    // Log events.
+    let mut spy = spy_events(SpyOn::One(strategy.contract_address));
+
+    // Deposit.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let base_amount_req = 0;
+    let quote_amount_req = to_e18(1000000);
+    let (base_amount, quote_amount, shares) = strategy.deposit(market_id, base_amount_req, quote_amount_req);
+
+    // Snapshot after.
+    let aft = _snapshot_state(
+        market_manager, strategy, market_id, base_token, quote_token, owner()
+    );
+
+    // Run checks.
+    assert(base_amount == base_amount_req, 'Base amount');
+    assert(approx_eq(quote_amount, quote_amount_req, 10), 'Quote amount');
+    assert(approx_eq_pct(shares, shares_init, 20), 'Shares');
+    assert(aft.lp_base_bal == bef.lp_base_bal - base_amount_req, 'Owner base balance');
+    assert(approx_eq(aft.lp_quote_bal, bef.lp_quote_bal - quote_amount_req, 10), 'Owner quote balance');
+    assert(aft.strategy_base_bal == bef.strategy_base_bal + base_amount_req, 'Strategy base balance');
+    assert(approx_eq(aft.strategy_quote_bal, bef.strategy_quote_bal + quote_amount_req, 10), 'Strategy quote balance');
+    assert(aft.market_base_bal == bef.market_base_bal, 'Market base balance');
+    assert(aft.market_quote_bal == bef.market_quote_bal, 'Market quote balance');
+    assert(aft.market_base_res == bef.market_base_res, 'Market base reserves');
+    assert(aft.market_quote_res == bef.market_quote_res, 'Market quote reserves');
+    assert(aft.strategy_state.base_reserves == bef.strategy_state.base_reserves + base_amount_req, 'Base reserves');
+    assert(
+        approx_eq(aft.strategy_state.quote_reserves, bef.strategy_state.quote_reserves + quote_amount_req, 10), 
+        'Quote reserves'
+    );
+    assert(aft.bid.lower_limit == 7906620 - 5000, 'Bid: lower limit');
+    assert(aft.bid.upper_limit == 7906620 + 0, 'Bid: upper limit');
+    assert(aft.ask.lower_limit == 7906620 + 10, 'Ask: lower limit');
+    assert(aft.ask.upper_limit == 7906620 + 5010, 'Ask: upper limit');
+    assert(token.balance_of(owner()) == shares_init + shares, 'User shares');
+    assert(token.total_supply() == shares_init + shares, 'Total supply');
+
+    // Check event emitted.
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    strategy.contract_address,
+                    TrendStrategy::Event::Deposit(
+                        TrendStrategy::Deposit {
+                            market_id,
+                            caller: owner(),
+                            base_amount,
+                            quote_amount,
+                            shares,
+                        }
+                    )
+                )
+            ]
+        );
+}
+
+// The portfolio could become entirely skewed in one asset due to price movements. In this case,
+// single-sided liquidity deposits should be handled gracefully.
+#[test]
+fn test_deposit_single_sided_ask_liquidity() {
+    let (market_manager, base_token, quote_token, market_id, strategy, token) = before();
+    
+    // Deposit initial.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = 1000;
+    let shares_init = strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+
+    // Swap buy to concentrate position entirely in ask.
+    start_prank(CheatTarget::One(market_manager.contract_address), strategy.contract_address);
+    start_prank(CheatTarget::One(strategy.contract_address), market_manager.contract_address);
+    market_manager
+        .swap(
+            market_id,
+            false,
+            to_e18(1000),
+            true,
+            Option::None(()),
+            Option::None(()),
+            Option::None(())
+        );
+
+    // Snapshot before.
+    let bef = _snapshot_state(
+        market_manager, strategy, market_id, base_token, quote_token, owner()
+    );
+
+    // Log events.
+    let mut spy = spy_events(SpyOn::One(strategy.contract_address));
+
+    // Deposit.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let base_amount_req = to_e18(500000);
+    let quote_amount_req = 0;
+    let (base_amount, quote_amount, shares) = strategy.deposit(market_id, base_amount_req, quote_amount_req);
+
+    // Snapshot after.
+    let aft = _snapshot_state(
+        market_manager, strategy, market_id, base_token, quote_token, owner()
+    );
+
+    // Run checks.
+    assert(base_amount == base_amount_req, 'Base amount');
+    assert(approx_eq(quote_amount, quote_amount_req, 10), 'Quote amount');
+    assert(approx_eq_pct(shares, shares_init, 20), 'Shares');
+    assert(aft.lp_base_bal == bef.lp_base_bal - base_amount_req, 'Owner base balance');
+    assert(approx_eq(aft.lp_quote_bal, bef.lp_quote_bal - quote_amount_req, 10), 'Owner quote balance');
+    assert(aft.strategy_base_bal == bef.strategy_base_bal + base_amount_req, 'Strategy base balance');
+    assert(approx_eq(aft.strategy_quote_bal, bef.strategy_quote_bal + quote_amount_req, 10), 'Strategy quote balance');
+    assert(aft.market_base_bal == bef.market_base_bal, 'Market base balance');
+    assert(aft.market_quote_bal == bef.market_quote_bal, 'Market quote balance');
+    assert(aft.market_base_res == bef.market_base_res, 'Market base reserves');
+    assert(aft.market_quote_res == bef.market_quote_res, 'Market quote reserves');
+    assert(aft.strategy_state.base_reserves == bef.strategy_state.base_reserves + base_amount_req, 'Base reserves');
+    assert(
+        approx_eq(aft.strategy_state.quote_reserves, bef.strategy_state.quote_reserves + quote_amount_req, 10), 
+        'Quote reserves'
+    );
+    assert(aft.bid.lower_limit == 7906620 - 5000, 'Bid: lower limit');
+    assert(aft.bid.upper_limit == 7906620 + 0, 'Bid: upper limit');
+    assert(aft.ask.lower_limit == 7906620 + 10, 'Ask: lower limit');
+    assert(aft.ask.upper_limit == 7906620 + 5010, 'Ask: upper limit');
+    assert(token.balance_of(owner()) == shares_init + shares, 'User shares');
+    assert(token.total_supply() == shares_init + shares, 'Total supply');
+
+    // Check event emitted.
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    strategy.contract_address,
+                    TrendStrategy::Event::Deposit(
+                        TrendStrategy::Deposit {
+                            market_id,
+                            caller: owner(),
+                            base_amount,
+                            quote_amount,
+                            shares,
+                        }
+                    )
+                )
+            ]
+        );
+}
+
+#[test]
+#[should_panic(expected: ('UseDepositInitial',))]
+fn test_deposit_no_deposits() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+    
+    // Deposit.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = 1000;
+    strategy.deposit(market_id, initial_base_amount, initial_quote_amount);
+}
+
+#[test]
+#[should_panic(expected: ('AmountZero',))]
+fn test_deposit_base_quote_amounts_zero() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    // Deposit initial.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+    
+    // Deposit.
+    strategy.deposit(market_id, 0, 0);
+}
+
+#[test]
+#[should_panic(expected: ('Paused',))]
+fn test_deposit_paused() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    // Deposit initial.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+
+    // Pause.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    strategy.pause(market_id);
+    
+    // Deposit.
+    let base_amount = to_e18(500000);
+    let quote_amount = to_e18(1000000);
+    strategy.deposit(market_id, base_amount, quote_amount);
 }
 
 #[test]
@@ -519,7 +931,6 @@ fn _test_update_positions(
     }
 }
 
-
 // Case 1: Trend = Ranging, price is below bid upper, and user is buying
 // Expected: No rebalance
 #[test]
@@ -687,6 +1098,79 @@ fn test_update_positions_update_range() {
     assert(ask_bef.lower_limit == ask_aft.lower_limit, 'Ask: lower limit');
     assert(ask_bef.upper_limit != ask_aft.upper_limit, 'Ask: upper limit');
     assert(ask_bef.liquidity != ask_aft.liquidity, 'Ask: liquidity');
+}
+
+#[test]
+#[should_panic(expected: ('OnlyMarketManager',))]
+fn test_update_positions_not_market_manager() {
+    let (_market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let strategy_alt = IStrategyDispatcher { contract_address: strategy.contract_address };
+    strategy_alt
+        .update_positions(
+            market_id, SwapParams { is_buy: true, amount: to_e18(1000), exact_input: true, }
+        );
+}
+
+#[test]
+fn test_update_positions_not_initialised() {
+    let (market_manager, _base_token, _quote_token, market_id, strategy) = before_skip_initialise();
+
+    // Trigger update positions.
+    start_prank(CheatTarget::One(strategy.contract_address), market_manager.contract_address);
+    let strategy_alt = IStrategyDispatcher { contract_address: strategy.contract_address };
+    strategy_alt
+        .update_positions(
+            market_id, SwapParams { is_buy: true, amount: to_e18(1000), exact_input: true, }
+        );
+
+    // Check no positions placed.
+    let placed_positions = IStrategyDispatcher { contract_address: strategy.contract_address }
+        .placed_positions(market_id);
+    let bid = *placed_positions.at(0);
+    let ask = *placed_positions.at(1);
+    assert(bid.lower_limit == 0, 'Bid: lower limit');
+    assert(bid.upper_limit == 0, 'Bid: upper limit');
+    assert(bid.liquidity == 0, 'Bid: liquidity');
+    assert(ask.lower_limit == 0, 'Ask: lower limit');
+    assert(ask.upper_limit == 0, 'Ask: upper limit');
+    assert(ask.liquidity == 0, 'Ask: liquidity');
+}
+
+#[test]
+fn test_update_positions_paused() {
+    let (market_manager, _base_token, _quote_token, market_id, strategy, _token) = before();
+
+    // Deposit initial.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    let initial_base_amount = to_e18(500000);
+    let initial_quote_amount = to_e18(1000000);
+    strategy.deposit_initial(market_id, initial_base_amount, initial_quote_amount);
+    
+    // Collect and pause.
+    start_prank(CheatTarget::One(strategy.contract_address), owner());
+    strategy.collect_and_pause(market_id);
+
+    // Trigger update positions.
+    start_prank(CheatTarget::One(strategy.contract_address), market_manager.contract_address);
+    let strategy_alt = IStrategyDispatcher { contract_address: strategy.contract_address };
+    strategy_alt
+        .update_positions(
+            market_id, SwapParams { is_buy: true, amount: to_e18(1000), exact_input: true, }
+        );
+
+    // Check no positions placed.
+    let placed_positions = IStrategyDispatcher { contract_address: strategy.contract_address }
+        .placed_positions(market_id);
+    let bid = *placed_positions.at(0);
+    let ask = *placed_positions.at(1);
+    assert(bid.lower_limit == 0, 'Bid: lower limit');
+    assert(bid.upper_limit == 0, 'Bid: upper limit');
+    assert(bid.liquidity == 0, 'Bid: liquidity');
+    assert(ask.lower_limit == 0, 'Ask: lower limit');
+    assert(ask.upper_limit == 0, 'Ask: upper limit');
+    assert(ask.liquidity == 0, 'Ask: liquidity');
 }
 
 #[test]

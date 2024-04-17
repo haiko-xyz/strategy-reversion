@@ -575,11 +575,11 @@ pub mod TrendStrategy {
         ) -> u256 {
             // Run checks
             assert(base_amount != 0 && quote_amount != 0, 'AmountZero');
+            let mut state = self.strategy_state.read(market_id);
+            assert(state.is_initialised, 'NotInitialised');
+            assert(!state.is_paused, 'Paused');
             let token = self.strategy_token.read(market_id);
             assert(token.total_supply() == 0, 'UseDeposit');
-            let mut state = self.strategy_state.read(market_id);
-            assert(!state.is_paused, 'Paused');
-            assert(state.is_initialised, 'NotInitialised');
 
             // Fetch dispatchers.
             let market_manager = self.market_manager.read();
