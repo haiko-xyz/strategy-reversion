@@ -1,6 +1,10 @@
 # Reversion Strategy for Haiko AMM
 
+![](images/reversion.png)
+
 The Reversion Strategy operates on a trend classification model (`Up`, `Down` or `Ranging`) to place countervailing liquidity positions in the Haiko AMM, capturing fees on reversion to the trend.
+
+## How it works
 
 Positions automatically follow the price of an asset, updated on either single or double-sided price action, depending on the prevailing trend. It is inspired by [Maverick Protocol](https://www.mav.xyz/)'s Left and Right modes and enables liquidity provision in both volatile and stable market conditions.
 
