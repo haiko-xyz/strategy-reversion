@@ -10,11 +10,16 @@ pub mod ReversionStrategy {
     use starknet::syscalls::{replace_class_syscall, deploy_syscall};
 
     // Local imports.
-    use haiko_strategy_reversion::libraries::{trend_math, store_packing::StrategyStateStorePacking};
+    use haiko_strategy_reversion::libraries::{
+        trend_math, store_packing::StrategyStateStorePacking, erc20_versioned_call
+    };
     use haiko_strategy_reversion::types::{Trend, StrategyState};
     use haiko_strategy_reversion::interfaces::IReversionStrategy::IReversionStrategy;
     use haiko_strategy_reversion::interfaces::IVaultToken::{
         IVaultTokenDispatcher, IVaultTokenDispatcherTrait
+    };
+    use haiko_strategy_reversion::interfaces::IERC20Metadata::{
+        IERC20MetadataFelt252Dispatcher, IERC20MetadataFelt252DispatcherTrait,
     };
 
     // Haiko imports.
@@ -536,10 +541,8 @@ pub mod ReversionStrategy {
             self.strategy_state.write(market_id, state);
 
             // Deploy token to keep track of strategy shares.
-            let base_symbol = ERC20ABIDispatcher { contract_address: market_info.base_token }
-                .symbol();
-            let quote_symbol = ERC20ABIDispatcher { contract_address: market_info.quote_token }
-                .symbol();
+            let base_symbol = erc20_versioned_call::get_symbol(market_info.base_token);
+            let quote_symbol = erc20_versioned_call::get_symbol(market_info.quote_token);
             let name: ByteArray = format!(
                 "Haiko {} {}-{}", self.name.read(), base_symbol, quote_symbol
             );
